@@ -1,0 +1,193 @@
+DISCLAIMER: If you see something strange, file a Github Issue and assign @patrickvonplaten
+
+Overview
+
+The Bart model was proposed in BART: Denoising Sequence-to-Sequence Pre-training for Natural Language Generation, Translation, and Comprehension by Mike Lewis, Yinhan Liu, Naman Goyal, Marjan Ghazvininejad, Abdelrahman Mohamed, Omer Levy, Ves Stoyanov and Luke Zettlemoyer on 29 Oct, 2019.
+
+According to the abstract,
+
+Bart uses a standard seq2seq/machine translation architecture with a bidirectional encoder (like BERT) and a left-to-right decoder (like GPT).
+The pretraining task involves randomly shuffling the order of the original sentences and a novel in-filling scheme, where spans of text are replaced with a single mask token.
+BART is particularly effective when fine tuned for text generation but also works well for comprehension tasks. It matches the performance of RoBERTa with comparable training resources on GLUE and SQuAD, achieves new state-of-the-art results on a range of abstractive dialogue, question answering, and summarization tasks, with gains of up to 6 ROUGE.
+Tips:
+
+BART is a model with absolute position embeddings so it’s usually advised to pad the inputs on the right rather than the left.
+
+Sequence-to-sequence model with an encoder and a decoder. Encoder is fed a corrupted version of the tokens, decoder is fed the original tokens (but has a mask to hide the future words like a regular transformers decoder). A composition of the following transformations are applied on the pretraining tasks for the encoder:
+
+mask random tokens (like in BERT)
+delete random tokens
+mask a span of k tokens with a single mask token (a span of 0 tokens is an insertion of a mask token)
+permute sentences
+rotate the document to make it start at a specific token
+This model was contributed by sshleifer. The Authors’ code can be found here.
+
+Examples
+
+Examples and scripts for fine-tuning BART and other models for sequence to sequence tasks can be found in examples/pytorch/summarization/.
+An example of how to train BartForConditionalGeneration with a Hugging Face datasets object can be found in this forum discussion.
+Distilled checkpoints are described in this paper.
+Implementation Notes
+
+Bart doesn’t use token_type_ids for sequence classification. Use BartTokenizer or encode() to get the proper splitting.
+The forward pass of BartModel will create the decoder_input_ids if they are not passed. This is different than some other modeling APIs. A typical use case of this feature is mask filling.
+Model predictions are intended to be identical to the original implementation when forced_bos_token_id=0. This only works, however, if the string you pass to fairseq.encode starts with a space.
+generate() should be used for conditional generation tasks like summarization, see the example in that docstrings.
+Models that load the facebook/bart-large-cnn weights will not have a mask_token_id, or be able to perform mask-filling tasks.
+Mask Filling
+
+The facebook/bart-base and facebook/bart-large checkpoints can be used to fill multi-token masks.
+
+Copied
+from transformers import BartForConditionalGeneration, BartTokenizer
+
+model = BartForConditionalGeneration.from_pretrained("facebook/bart-large", forced_bos_token_id=0)
+tok = BartTokenizer.from_pretrained("facebook/bart-large")
+example_english_phrase = "UN Chief Says There Is No <mask> in Syria"
+batch = tok(example_english_phrase, return_tensors="pt")
+generated_ids = model.generate(batch["input_ids"])
+assert tok.batch_decode(generated_ids, skip_special_tokens=True) == [
+    "UN Chief Says There Is No Plan to Stop Chemical Weapons in Syria"
+]
+Resources
+
+A list of official Hugging Face and community (indicated by 🌎) resources to help you get started with BART. If you’re interested in submitting a resource to be included here, please feel free to open a Pull Request and we’ll review it! The resource should ideally demonstrate something new instead of duplicating an existing resource.
+
+
+Summarization
+A blog post on Distributed Training: Train BART/T5 for Summarization using 🤗 Transformers and Amazon SageMaker.
+A notebook on how to finetune BART for summarization with fastai using blurr. 🌎
+A notebook on how to finetune BART for summarization in two languages with Trainer class. 🌎
+BartForConditionalGeneration is supported by this example script and notebook.
+TFBartForConditionalGeneration is supported by this example script and notebook.
+FlaxBartForConditionalGeneration is supported by this example script.
+Summarization chapter of the 🤗 Hugging Face course.
+Summarization task guide
+
+Fill-Mask
+BartForConditionalGeneration is supported by this example script and notebook.
+TFBartForConditionalGeneration is supported by this example script and notebook.
+FlaxBartForConditionalGeneration is supported by this example script and notebook.
+Masked language modeling chapter of the 🤗 Hugging Face Course.
+Masked language modeling task guide
+
+Translation
+A notebook on how to finetune mBART using Seq2SeqTrainer for Hindi to English translation. 🌎
+BartForConditionalGeneration is supported by this example script and notebook.
+TFBartForConditionalGeneration is supported by this example script and notebook.
+Translation task guide
+See also:
+
+Text classification task guide
+Question answering task guide
+Causal language modeling task guide
+BartConfig
+
+class transformers.BartConfig
+<
+source
+>
+( vocab_size = 50265max_position_embeddings = 1024encoder_layers = 12encoder_ffn_dim = 4096encoder_attention_heads = 16decoder_layers = 12decoder_ffn_dim = 4096decoder_attention_heads = 16encoder_layerdrop = 0.0decoder_layerdrop = 0.0activation_function = 'gelu'd_model = 1024dropout = 0.1attention_dropout = 0.0activation_dropout = 0.0init_std = 0.02classifier_dropout = 0.0scale_embedding = Falseuse_cache = Truenum_labels = 3pad_token_id = 1bos_token_id = 0eos_token_id = 2is_encoder_decoder = Truedecoder_start_token_id = 2forced_eos_token_id = 2**kwargs )
+
+Expand 21 parameters
+Parameters
+
+vocab_size (int, optional, defaults to 50265) — Vocabulary size of the BART model. Defines the number of different tokens that can be represented by the inputs_ids passed when calling BartModel or TFBartModel.
+
+d_model (int, optional, defaults to 1024) — Dimensionality of the layers and the pooler layer.
+
+encoder_layers (int, optional, defaults to 12) — Number of encoder layers.
+
+decoder_layers (int, optional, defaults to 12) — Number of decoder layers.
+
+encoder_attention_heads (int, optional, defaults to 16) — Number of attention heads for each attention layer in the Transformer encoder.
+
+decoder_attention_heads (int, optional, defaults to 16) — Number of attention heads for each attention layer in the Transformer decoder.
+
+decoder_ffn_dim (int, optional, defaults to 4096) — Dimensionality of the “intermediate” (often named feed-forward) layer in decoder.
+
+encoder_ffn_dim (int, optional, defaults to 4096) — Dimensionality of the “intermediate” (often named feed-forward) layer in decoder.
+
+activation_function (str or function, optional, defaults to "gelu") — The non-linear activation function (function or string) in the encoder and pooler. If string, "gelu", "relu", "silu" and "gelu_new" are supported.
+
+dropout (float, optional, defaults to 0.1) — The dropout probability for all fully connected layers in the embeddings, encoder, and pooler.
+
+attention_dropout (float, optional, defaults to 0.0) — The dropout ratio for the attention probabilities.
+
+activation_dropout (float, optional, defaults to 0.0) — The dropout ratio for activations inside the fully connected layer.
+
+classifier_dropout (float, optional, defaults to 0.0) — The dropout ratio for classifier.
+
+max_position_embeddings (int, optional, defaults to 1024) — The maximum sequence length that this model might ever be used with. Typically set this to something large just in case (e.g., 512 or 1024 or 2048).
+
+init_std (float, optional, defaults to 0.02) — The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
+
+encoder_layerdrop (float, optional, defaults to 0.0) — The LayerDrop probability for the encoder. See the [LayerDrop paper](see https://arxiv.org/abs/1909.11556) for more details.
+
+decoder_layerdrop (float, optional, defaults to 0.0) — The LayerDrop probability for the decoder. See the [LayerDrop paper](see https://arxiv.org/abs/1909.11556) for more details.
+
+scale_embedding (bool, optional, defaults to False) — Scale embeddings by diving by sqrt(d_model).
+
+use_cache (bool, optional, defaults to True) — Whether or not the model should return the last key/values attentions (not used by all models).
+
+num_labels (int, optional, defaults to 3) — The number of labels to use in BartForSequenceClassification.
+
+forced_eos_token_id (int, optional, defaults to 2) — The id of the token to force as the last generated token when max_length is reached. Usually set to eos_token_id.
+This is the configuration class to store the configuration of a BartModel. It is used to instantiate a BART model according to the specified arguments, defining the model architecture. Instantiating a configuration with the defaults will yield a similar configuration to that of the BART facebook/bart-large architecture.
+
+Configuration objects inherit from PretrainedConfig and can be used to control the model outputs. Read the documentation from PretrainedConfig for more information.
+
+
+Example:
+
+Copied
+>>> from transformers import BartConfig, BartModel
+
+>>> # Initializing a BART facebook/bart-large style configuration
+>>> configuration = BartConfig()
+
+>>> # Initializing a model (with random weights) from the facebook/bart-large style configuration
+>>> model = BartModel(configuration)
+
+>>> # Accessing the model configuration
+>>> configuration = model.config
+BartTokenizer
+
+class transformers.BartTokenizer
+<
+source
+>
+( vocab_filemerges_fileerrors = 'replace'bos_token = '<s>'eos_token = '</s>'sep_token = '</s>'cls_token = '<s>'unk_token = '<unk>'pad_token = '<pad>'mask_token = '<mask>'add_prefix_space = False**kwargs )
+
+Expand 11 parameters
+Parameters
+
+vocab_file (str) — Path to the vocabulary file.
+
+merges_file (str) — Path to the merges file.
+
+errors (str, optional, defaults to "replace") — Paradigm to follow when decoding bytes to UTF-8. See bytes.decode for more information.
+
+bos_token (str, optional, defaults to "<s>") — The beginning of sequence token that was used during pretraining. Can be used a sequence classifier token.
+When building a sequence using special tokens, this is not the token that is used for the beginning of sequence. The token used is the cls_token.
+
+eos_token (str, optional, defaults to "</s>") — The end of sequence token.
+When building a sequence using special tokens, this is not the token that is used for the end of sequence. The token used is the sep_token.
+
+sep_token (str, optional, defaults to "</s>") — The separator token, which is used when building a sequence from multiple sequences, e.g. two sequences for sequence classification or for a text and a question for question answering. It is also used as the last token of a sequence built with special tokens.
+
+cls_token (str, optional, defaults to "<s>") — The classifier token which is used when doing sequence classification (classification of the whole sequence instead of per-token classification). It is the first token of the sequence when built with special tokens.
+
+unk_token (str, optional, defaults to "<unk>") — The unknown token. A token that is not in the vocabulary cannot be converted to an ID and is set to be this token instead.
+
+pad_token (str, optional, defaults to "<pad>") — The token used for padding, for example when batching sequences of different lengths.
+
+mask_token (str, optional, defaults to "<mask>") — The token used for masking values. This is the token used when training this model with masked language modeling. This is the token which the model will try to predict.
+
+add_prefix_space (bool, optional, defaults to False) — Whether or not to add an initial space to the input. This allows to treat the leading word just as any other word. (BART tokenizer detect beginning of words by the preceding space).
+Constructs a BART tokenizer, which is smilar to the ROBERTa tokenizer, using byte-level Byte-Pair-Encoding.
+
+This tokenizer has been trained to treat spaces like parts of the tokens (a bit like sentencepiece) so a word will
+
+
+be encoded differently whether it is at the beginning of the sentence (without space) or not:
