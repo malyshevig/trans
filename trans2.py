@@ -1,5 +1,5 @@
 from transformers import BartTokenizerFast, BartModel
-
+import evaluate
 
 def readfile(fname: str):
     with open(fname, "rt") as fd:
@@ -11,11 +11,11 @@ def readfile(fname: str):
 
 
 s = readfile("test2.txt")
-tokenizer = BartTokenizerFast.from_pretrained("facebook/bart-base")
-t=tokenizer(s, return_tensors="pt")
+tokenizer = BartTokenizerFast.from_pretrained("facebook/bart-large", truncation_side = "right")
+t=tokenizer(s, return_tensors="pt",truncation=True)
 
-model = BartModel.from_pretrained('facebook/bart-base')
+model = BartModel.from_pretrained('facebook/bart-large')
 r = model(**t)
 
 
-print(r)
+print(model)
