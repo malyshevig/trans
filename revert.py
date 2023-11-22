@@ -1,35 +1,37 @@
 import torch.cuda
 from transformers import MBartTokenizer, MBartForConditionalGeneration
 
-device = torch.device('cuda')
 
-model_name = "IlyaGusev/mbart_ru_sum_gazeta"
-tokenizer = MBartTokenizer.from_pretrained(model_name)
+def summary(text:str):
+    device = torch.device('cuda')
 
-model = MBartForConditionalGeneration.from_pretrained(model_name)
-model.to(device)
+    model_name = "IlyaGusev/mbart_ru_sum_gazeta"
+    tokenizer = MBartTokenizer.from_pretrained(model_name)
 
-import util
-import sentencepiece
+    model = MBartForConditionalGeneration.from_pretrained(model_name)
+    model.to(device)
 
-article_text = util.readfile("text3.txt")
+    import util
+    import sentencepiece
 
-input_ids = tokenizer(
-    [article_text],
-    max_length=600,
-    padding="max_length",
-    truncation=True,
-    return_tensors="pt",
-)["input_ids"].to(device)
+    article_text = text
 
-output_ids = model.generate(
-    input_ids=input_ids,
-    no_repeat_ngram_size=4
-)[0]
+    input_ids = tokenizer(
+        [article_text],
+        max_length=600,
+        padding="max_length",
+        truncation=True,
+        return_tensors="pt",
+    )["input_ids"].to(device)
 
-summary = tokenizer.decode(output_ids, skip_special_tokens=True)
-print(summary)
+    output_ids = model.generate(
+        input_ids=input_ids,
+        no_repeat_ngram_size=4
+    )[0]
 
-print (torch.cuda.is_available())
+    _summary = tokenizer.decode(output_ids, skip_special_tokens=True)
+    print(_summary)
+
+    return _summary
 
 

@@ -1,5 +1,21 @@
 from datasets import load_dataset, load_metric,config
-raw_datasets = load_dataset("wmt16", "de-en")
+import sys, logging
+import torch
+from pytorch_memlab import profile, set_target_gpu, MemReporter
+from pynvml import *
+
+reporter = MemReporter()
+reporter.report()
+
+#torch.backends.cudnn.benchmark=False
+
+from transformers.models.mbart.tokenization_mbart_fast import MBartTokenizer
+
+logging.basicConfig(stream=sys.stdout, encoding='utf-8', format='%(asctime)s %(levelname)s %(message)s',
+                    level=logging.INFO)
+
+#raw_datasets = load_dataset("wmt16", "de-en")
+raw_datasets = load_dataset('IlyaGusev/gazeta')
 import sacrebleu, nltk
 
 
@@ -9,18 +25,18 @@ max_target_length = 128
 source_lang = "en"
 target_lang = "de"
 
-model_mbart = 'facebook/mbart-large-50-one-to-many-mmt'
+model_mbart = "IlyaGusev/mbart_ru_sum_gazeta"
 
 import torch
 torch.cuda.empty_cache()
 
 from transformers import MBart50TokenizerFast, Seq2SeqTrainer
 
-tokenizer = MBart50TokenizerFast.from_pretrained(model_mbart,src_lang="en_XX",tgt_lang = "de_DE")
+tokenizer = MBartTokenizer.from_pretrained(model_mbart,src_lang="ru_RU",tgt_lang = "ru_RU")
 
 def preprocess_function(examples):
-   inputs = [prefix + ex[source_lang] for ex in examples["translation"]]
-   targets = [ex[target_lang] for ex in examples["translation"]]
+   inputs = examples["text"]
+   targets = examples["summary"]
    model_inputs = tokenizer(inputs, max_length=max_input_length, truncation=True)
 
    # Setup the tokenizer for targets
@@ -31,17 +47,23 @@ def preprocess_function(examples):
    model_inputs["labels"] = labels["input_ids"]
    return model_inputs
 
-tokenized_datasets = raw_datasets.map(preprocess_function, batched=True)
+#tokenized_datasets = raw_datasets.map(preprocess_function, batched=True)
 
-small_train_dataset = tokenized_datasets["train"].shuffle(seed=42).select(range(1000))
-small_eval_dataset = tokenized_datasets["test"].shuffle(seed=42).select(range(1000))
+#small_train_dataset = tokenized_datasets["train"].shuffle(seed=42).select(range(1000))
+#small_eval_dataset = tokenized_datasets["test"].shuffle(seed=42).select(range(1000))
 
+small_train_dataset = raw_datasets["train"].shuffle(seed=42).select(range(1000))
+small_eval_dataset = raw_datasets["test"].shuffle(seed=42).select(range(1000))
+
+small_train_dataset = small_train_dataset.map(preprocess_function, batched=True)
+small_eval_dataset = small_eval_dataset.map(preprocess_function, batched=True)
 
 
 from transformers import MBartForConditionalGeneration, Seq2SeqTrainingArguments, DataCollatorForSeq2Seq
 
 model = MBartForConditionalGeneration.from_pretrained(model_mbart)
-batch_size = 8
+
+batch_size = 4
 
 args = Seq2SeqTrainingArguments(
    f"{model_mbart}-finetuned-{source_lang}-to-{target_lang}",
@@ -53,8 +75,11 @@ args = Seq2SeqTrainingArguments(
    save_total_limit=3,
    num_train_epochs=5,
    predict_with_generate=True,
+   fp16=True,
+   metric_for_best_model="bleu"
 
 )
+
 
 data_collator = DataCollatorForSeq2Seq(tokenizer, model=model)
 
@@ -89,6 +114,9 @@ def compute_metrics(eval_preds):
    return result
 
 
+optimizer = torch.optim.SGD(model.parameters(), lr = 0.01, momentum=0.9)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, threshold=0.01, patience=5)
+
 trainer = Seq2SeqTrainer(
    model,
    args,
@@ -96,6 +124,11 @@ trainer = Seq2SeqTrainer(
    eval_dataset=small_eval_dataset,
    data_collator=data_collator,
    tokenizer=tokenizer,
-   compute_metrics=compute_metrics
+   compute_metrics=compute_metrics,
+   optimizers=[optimizer, scheduler]
+
 )
 trainer.train()
+
+
+torch.save(model.state_dict(),"my_model.pt")
