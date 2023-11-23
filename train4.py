@@ -49,11 +49,11 @@ def preprocess_function(examples):
 
 #tokenized_datasets = raw_datasets.map(preprocess_function, batched=True)
 
-#small_train_dataset = tokenized_datasets["train"].shuffle(seed=42).select(range(1000))
-#small_eval_dataset = tokenized_datasets["test"].shuffle(seed=42).select(range(1000))
+#small_train_dataset = tokenized_datasets["train"].shuffle(seed=42).select(range(3000))
+#small_eval_dataset = tokenized_datasets["test"].shuffle(seed=42).select(range(3000))
 
-small_train_dataset = raw_datasets["train"].shuffle(seed=42).select(range(1000))
-small_eval_dataset = raw_datasets["test"].shuffle(seed=42).select(range(1000))
+small_train_dataset = raw_datasets["train"].shuffle(seed=42).select(range(3000))
+small_eval_dataset = raw_datasets["test"].shuffle(seed=42).select(range(3000))
 
 small_train_dataset = small_train_dataset.map(preprocess_function, batched=True)
 small_eval_dataset = small_eval_dataset.map(preprocess_function, batched=True)
@@ -76,7 +76,7 @@ args = Seq2SeqTrainingArguments(
    num_train_epochs=5,
    predict_with_generate=True,
    fp16=True,
-   metric_for_best_model="bleu"
+   metric_for_best_model="loss"
 
 )
 
@@ -131,4 +131,4 @@ trainer = Seq2SeqTrainer(
 trainer.train()
 
 
-torch.save(model.state_dict(),"my_model.pt")
+torch.save(model.state_dict(),"my_model2.pt")
